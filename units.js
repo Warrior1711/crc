@@ -1,14 +1,14 @@
-// List of available units with customizable stats and image (PNG or null for shape)
+/// List of available units with customizable stats and image (PNG or null for shape)
 const UNIT_CONFIG = [
     {
         name: "Knight",
-        type: "melee", // melee, ranged, spell
+        type: "melee",
         damage: 30,
         cooldown: 1.2,
         hp: 120,
         speed: 2,
         color: "#b5651d",
-        image: null // Use shape
+        image: null
     },
     {
         name: "Archer",
@@ -18,7 +18,7 @@ const UNIT_CONFIG = [
         hp: 60,
         speed: 2.4,
         color: "#4af",
-        image: null // Use shape
+        image: null
     },
     {
         name: "Fireball",
@@ -68,7 +68,8 @@ const UNIT_CONFIG = [
         hp: 160,
         speed: 2.1,
         color: "#f33",
-        image: null // For a custom PNG, provide the path: "dragon.png"
+        image: null
     }
     // Add more units here!
 ];
+
