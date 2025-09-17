@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Clash Royale Starter Template</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-ui">
+        <div class="player-area" id="player1-area">
+            <div class="deck" id="deck1"></div>
+        </div>
+        <canvas id="game-canvas" width="900" height="500"></canvas>
+        <div class="player-area" id="player2-area">
+            <div class="deck" id="deck2"></div>
+        </div>
+    </div>
+    <div id="swap-modal" class="hidden">
+        <div id="all-units"></div>
+        <button id="close-modal">Close</button>
+    </div>
+    <script src="units.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
