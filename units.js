@@ -31,12 +31,12 @@ const UNIT_CONFIG = [
         image: null
     },
     {
-        name: "Goblin",
+        name: "Rusher",
         type: "melee",
-        damage: 12,
-        cooldown: 0.7,
-        hp: 30,
-        speed: 3,
+        damage: 50,
+        cooldown: 1.5,
+        hp: 25,
+        speed: 4,
         color: "#3d3",
         image: null
     },
