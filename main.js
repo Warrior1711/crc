@@ -1,13 +1,19 @@
 // --- GAME SETTINGS ---
 const FIELD_WIDTH = 900, FIELD_HEIGHT = 500;
+const TOWER_HP = 300;
 
 // --- PLAYER STATE ---
 let decks = [
     [0, 1, 2, 3], // Player 1: indices in UNIT_CONFIG
     [4, 5, 6, 0], // Player 2: indices in UNIT_CONFIG
 ];
-let activeCard = [null, null]; // Which card is currently selected [p1, p2]
-let fieldUnits = []; // {unitIndex, x, y, player, hp, cooldown, targetId, ...}
+let activeCard = [null, null];
+let fieldUnits = [];
+let towers = [
+    { x: 80, y: FIELD_HEIGHT / 2, hp: TOWER_HP },
+    { x: FIELD_WIDTH - 80, y: FIELD_HEIGHT / 2, hp: TOWER_HP }
+];
+let winner = null;
 
 // --- UI ---
 const canvas = document.getElementById("game-canvas");
@@ -45,10 +51,10 @@ function renderDecks() {
             nameDiv.className = "unit-name";
             nameDiv.innerText = unit.name;
             card.appendChild(nameDiv);
-            // Damage/type
+            // Damage/type/speed
             const stats = document.createElement("div");
             stats.style.fontSize = "0.8em";
-            stats.innerText = `${unit.type} | DMG:${unit.damage} | CD:${unit.cooldown}`;
+            stats.innerText = `${unit.type} | DMG:${unit.damage} | SPD:${unit.speed} | CD:${unit.cooldown}`;
             card.appendChild(stats);
 
             deckEls[p].appendChild(card);
@@ -63,7 +69,8 @@ function openSwapModal(player, cardIdx) {
     UNIT_CONFIG.forEach((u, idx) => {
         const btn = document.createElement("div");
         btn.className = "unit-option";
-        btn.innerHTML = `<b>${u.name}</b><br><span style="font-size:0.8em;">${u.type} | DMG:${u.damage}</span>`;
+        btn.innerHTML = `<b>${u.name}</b><br>
+        <span style="font-size:0.8em;">${u.type} | DMG:${u.damage} | SPD:${u.speed}</span>`;
         btn.onclick = () => {
             decks[player][cardIdx] = idx;
             swapModal.classList.add("hidden");
@@ -78,20 +85,20 @@ document.getElementById("close-modal").onclick = () => swapModal.classList.add("
 let lastTime = Date.now();
 function gameLoop() {
     let now = Date.now(), dt = (now - lastTime) / 1000; lastTime = now;
-    updateUnits(dt);
+    if (!winner) updateUnits(dt);
     drawField();
     requestAnimationFrame(gameLoop);
 }
 
 // --- DEPLOY UNITS ---
 canvas.onclick = function(e) {
+    if (winner) return;
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left, y = e.clientY - rect.top;
     let side = (x < FIELD_WIDTH/2) ? 0 : 1;
     if (activeCard[side] !== null) {
         let unitIdx = decks[side][activeCard[side]];
         const unit = UNIT_CONFIG[unitIdx];
-        // Check cooldown for this slot
         let last = fieldUnits.filter(u => u.player === side && u.deckSlot === activeCard[side] && u.cooldown > 0);
         if (last.length === 0) {
             fieldUnits.push({
@@ -111,38 +118,53 @@ function updateUnits(dt) {
             for (let t of fieldUnits) {
                 if (t.player !== u.player && dist(u, t) < 40) t.hp -= unit.damage;
             }
+            // Damage tower if close
+            let enemyTower = towers[1 - u.player];
+            if (dist(u, enemyTower) < 40) enemyTower.hp -= unit.damage;
             u.didDamage = true; u.hp = 0;
         } else if (unit.type === "melee" || unit.type === "ranged") {
-            // SEEK TARGET
             let enemies = fieldUnits.filter(t => t.player !== u.player && t.hp > 0);
-            let target = enemies[0];
-            let minDist = 9999;
+            let target = null, minDist = 9999;
             for (let t of enemies) {
                 let d = dist(u, t);
                 if (d < minDist) { minDist = d; target = t; }
             }
-            if (target) {
-                // Move toward or attack
-                let dx = target.x - u.x, dy = target.y - u.y, d = Math.sqrt(dx*dx+dy*dy);
-                if (d > 32 && unit.type === "melee") {
+            // If no enemy units, target enemy tower
+            if (!target) {
+                target = towers[1-u.player];
+                minDist = dist(u, target);
+            }
+            let dx = target.x - u.x, dy = target.y - u.y, d = Math.sqrt(dx*dx+dy*dy);
+            let attackRange = (unit.type === "melee") ? 32 : 64;
+            if (d > attackRange) {
+                // Move toward
+                if (d > 0.1) {
                     u.x += (dx/d) * unit.speed;
                     u.y += (dy/d) * unit.speed;
-                } else if (d > 64 && unit.type === "ranged") {
-                    u.x += (dx/d) * unit.speed;
-                    u.y += (dy/d) * unit.speed;
-                } else {
-                    // attack (cooldown)
-                    u.cooldown -= dt;
-                    if (u.cooldown <= 0) {
+                }
+            } else {
+                // attack (cooldown)
+                u.cooldown -= dt;
+                if (u.cooldown <= 0) {
+                    if (target.hp !== undefined) { // tower
                         target.hp -= unit.damage;
-                        u.cooldown = UNIT_CONFIG[u.unitIndex].cooldown;
+                    } else {
+                        target.hp -= unit.damage;
                     }
+                    u.cooldown = UNIT_CONFIG[u.unitIndex].cooldown;
                 }
             }
         }
     }
     // Remove dead units
     fieldUnits = fieldUnits.filter(u => u.hp > 0);
+    // Check win
+    for (let p = 0; p < 2; ++p) {
+        if (towers[p].hp <= 0 && !winner) {
+            winner = p === 0 ? "Player 2" : "Player 1";
+            setTimeout(() => alert(`${winner} wins! Reload to play again.`), 100);
+        }
+    }
 }
 
 // --- DRAW FIELD AND UNITS ---
@@ -151,6 +173,29 @@ function drawField() {
     // Draw middle line
     ctx.strokeStyle = "#fff";
     ctx.beginPath(); ctx.moveTo(FIELD_WIDTH/2,0); ctx.lineTo(FIELD_WIDTH/2,FIELD_HEIGHT); ctx.stroke();
+    // Draw towers
+    for (let p = 0; p < 2; ++p) {
+        let t = towers[p];
+        ctx.save();
+        ctx.translate(t.x, t.y);
+        ctx.fillStyle = p === 0 ? "#45f" : "#f44";
+        ctx.beginPath();
+        ctx.arc(0,0,32,0,2*Math.PI);
+        ctx.fill();
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#fff";
+        ctx.stroke();
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 17px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("T", 0, 6);
+        // HP bar
+        ctx.fillStyle = "#f00";
+        ctx.fillRect(-30, 38, 60*t.hp/TOWER_HP, 8);
+        ctx.strokeStyle = "#fff";
+        ctx.strokeRect(-30, 38, 60, 8);
+        ctx.restore();
+    }
     // Draw units
     for (let u of fieldUnits) {
         const unit = UNIT_CONFIG[u.unitIndex];
@@ -180,11 +225,27 @@ function drawField() {
 
         ctx.restore();
     }
+    // Draw winner
+    if (winner) {
+        ctx.save();
+        ctx.globalAlpha = 0.85;
+        ctx.fillStyle = "#111";
+        ctx.fillRect(FIELD_WIDTH/2-130, FIELD_HEIGHT/2-40, 260, 80);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 32px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`${winner} wins!`, FIELD_WIDTH/2, FIELD_HEIGHT/2+12);
+        ctx.restore();
+    }
 }
 
 // --- UTIL ---
 function dist(a, b) { return Math.hypot(a.x-b.x, a.y-b.y); }
 
+// --- INIT ---
+renderDecks();
+gameLoop();
 // --- INIT ---
 renderDecks();
 gameLoop();
