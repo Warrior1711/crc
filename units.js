@@ -70,6 +70,16 @@ const UNIT_CONFIG = [
         color: "#f33",
         image: null
     }
+     {
+        name: "Fisherman",
+        type: "ranged",
+        damage: 25,
+        cooldown: 1.7,
+        hp: 110,
+        speed: 1.5,
+        color: "#f37",
+        image: null
+    }
     // Add more units here!
 ];
 
